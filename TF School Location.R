@@ -3,6 +3,7 @@ library(dplyr)
 library(ggplot2)
 
 location_data = read_excel("School Location 2023.xlsx", sheet = 2)
+location_data %>% filter(location_data$`Calendar Year` == 2023)
 numeracy_data = read.csv("2023NAPLAN_scores_yr5.csv")
 school_data = inner_join(location_data, numeracy_data, by = "ACARA.SML.ID") # cleans data
 summary(school_data)
