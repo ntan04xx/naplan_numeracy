@@ -31,20 +31,45 @@ set.seed(69420)
 k <- 10 # Number of folds for cross-validation
 train_control <- trainControl(method = "cv", number = k)
 
+train_prob <- 0.6 # Proportion of data used for training
+training_index <- createDataPartition(school_data$NAPLAN, p = train_prob, list = FALSE)
+train_data <- school_data[training_index,]
+remaining_data <- school_data[-training_index,]
+
+validation_prob <- 0.5 # Proportion of remaining data used for validation
+validation_index <- createDataPartition(remaining_data$NAPLAN, p = validation_prob, list = FALSE)
+validation_data <- remaining_data[validation_index,]
+test_data <- remaining_data[-validation_index,]
+
 # KNN
 formula <- NAPLAN ~ State + `School Sector` + ICSEA + sport_index + teach_edu_index + stu_atd + teach_tenure + student.teacher.ratio
-naplan_model_knn <- train(formula, data = school_data, method = "knn", trControl = train_control) # Need to separate into different datasets later
-print(naplan_model_knn)
+tune_grid <- expand.grid(k = seq(1, 20))
+naplan_model_knn <- train(formula, data = train_data, method = "knn", trControl = train_control, tuneGrid = tune_grid) # Need to separate into different datasets later
+best_knn <- naplan_model_knn$bestTune$k
+
+knn_predictions <- predict(naplan_model_knn, newdata = validation_data)
+data.frame(Actual = validation_data$NAPLAN, knn_predictions)
+postResample(pred = knn_predictions, obs = validation_data$NAPLAN)
 
 # Multiple linear
-naplan_model_linear <- train(formula, data = school_data, method = "lm", trControl = train_control)
-print(naplan_model_linear)
+naplan_model_linear <- train(formula, data = train_data, method = "lm", trControl = train_control)
+best_linear <- naplan_model_linear$finalModel
+summary(best_linear)
+
+linear_predictions <- predict(naplan_model_linear, newdata = validation_data)
+data.frame(Actual = validation_data$NAPLAN, linear_predictions)
+postResample(pred = linear_predictions, obs = validation_data$NAPLAN)
 
 # Elastic Net
 tune_grid <- expand.grid(
   alpha = seq(0, 1, length = 20),
   lambda = seq(0.001, 0.1, length = 20)
 )
-naplan_model_elastic <- train(formula, data = school_data, method = "glmnet", trControl = train_control, tuneGrid = tune_grid)
-print(naplan_model_elastic)
+naplan_model_elastic <- train(formula, data = train_data, method = "glmnet", trControl = train_control, tuneGrid = tune_grid)
+best_elastic <- naplan_model_elastic$finalModel
+best_coeff <- coef(best_elastic, naplan_model_elastic$bestTune$lambda)
+print(best_coeff)
 
+elastic_predictions <- predict(naplan_model_elastic, newdata = validation_data)
+data.frame(Actual = validation_data$NAPLAN, elastic_predictions)
+postResample(pred = elastic_predictions, obs = validation_data$NAPLAN)
