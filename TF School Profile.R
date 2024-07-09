@@ -3,6 +3,7 @@ library(dplyr)
 library(tidyr)
 library(caret)
 library(glmnet)
+library(car)
 
 profile_data = read_excel("School Profile 2023.xlsx", sheet = 2)
 numeracy_data = read.csv("2023NAPLAN_scores_yr5.csv")
@@ -59,6 +60,7 @@ summary(best_linear)
 linear_predictions <- predict(naplan_model_linear, newdata = validation_data)
 data.frame(Actual = validation_data$NAPLAN, linear_predictions)
 postResample(pred = linear_predictions, obs = validation_data$NAPLAN)
+plot(best_linear)
 
 # Elastic Net
 tune_grid <- expand.grid(
@@ -73,3 +75,18 @@ print(best_coeff)
 elastic_predictions <- predict(naplan_model_elastic, newdata = validation_data)
 data.frame(Actual = validation_data$NAPLAN, elastic_predictions)
 postResample(pred = elastic_predictions, obs = validation_data$NAPLAN)
+
+best_lambda <- naplan_model_elastic$bestTune$lambda
+best_alpha <- naplan_model_elastic$bestTune$alpha
+train_matrix <- model.matrix(formula, data = train_data)[, -1]
+fitted_values <- predict(best_elastic, s = best_lambda, newx = train_matrix, type = "response")
+residuals <- train_data$NAPLAN - fitted_values
+plot_data <- data.frame(Fitted = fitted_values, Residuals = residuals)
+ggplot(plot_data, aes(x = s1, y = s1.1)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+vif(best_linear)
